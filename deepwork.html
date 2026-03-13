@@ -1,44 +1,302 @@
-<!-- ... existing code ... -->
-        function playAlarm() {
-            // Chuông báo đơn giản dùng Web Audio API
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, ctx.currentTime);
-            osc.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 0.5);
+
+<html lang="vi">
+<head>
+    <meta charset="UTF-8"></meta>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"></meta>
+    <title>Deep Work Station | Trạm Tập Trung Cao Độ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;display=swap" rel="stylesheet"></link>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"></link>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        // --- LOGIC CÀI ĐẶT THỜI GIAN ---
-        function openSettings() {
-            document.getElementById('input-work-time').value = TIME_WORK / 60;
-            document.getElementById('input-break-time').value = TIME_BREAK / 60;
-            const modal = document.getElementById('settings-modal');
-            modal.style.display = 'flex';
-            setTimeout(() => modal.classList.add('active'), 10);
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
-        function closeSettings() {
-            const modal = document.getElementById('settings-modal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
+        .timer-glow {
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
         }
 
-        function saveSettings() {
-            const newWork = parseInt(document.getElementById('input-work-time').value);
-            const newBreak = parseInt(document.getElementById('input-break-time').value);
-            
-            if (newWork > 0 && newBreak > 0) {
-                TIME_WORK = newWork * 60;
-                TIME_BREAK = newBreak * 60;
-                resetTimer(); // Reset lại timer với thời gian mới
-                closeSettings();
+        input[type=range] {
+            accent-color: #6366f1;
+        }
+
+        .active-tab {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: #6366f1;
+            color: #818cf8;
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .working-state {
+            animation: pulse-soft 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4">
+
+    <!-- Header -->
+    <header class="text-center mb-10">
+        <h1 class="text-4xl font-bold tracking-tight mb-2 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-cyan-400">
+            DEEP WORK STATION
+        </h1>
+        <p class="text-slate-400 italic text-sm">"Sự tập trung là đơn vị tiền tệ của thành công."</p>
+    </header>
+
+    <main class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Cột trái & giữa: Pomodoro -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="glass rounded-3xl p-8 text-center relative overflow-hidden">
+                <!-- Chế độ -->
+                <div class="flex justify-center space-x-4 mb-8">
+                    <button class="px-6 py-2 rounded-full border border-slate-700 transition-all active-tab" id="btn-work" onclick="setMode('work')">Làm việc</button>
+                    <button class="px-6 py-2 rounded-full border border-slate-700 transition-all" id="btn-break" onclick="setMode('break')">Nghỉ ngắn</button>
+                </div>
+
+                <!-- Đồng hồ -->
+                <div class="timer-glow text-8xl md:text-9xl font-bold mb-8 tracking-tighter" id="timer-display">
+                    25:00
+                </div>
+
+                <!-- Điều khiển -->
+                <div class="flex justify-center items-center space-x-6">
+                    <button class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors" onclick="resetTimer()">
+                        <i class="fas fa-redo-alt text-lg"></i>
+                    </button>
+                    <button class="w-20 h-20 bg-indigo-600 hover:bg-indigo-500 rounded-full flex items-center justify-center shadow-lg shadow-indigo-500/20 transition-all transform hover:scale-105" id="play-pause-btn" onclick="toggleTimer()">
+                        <i class="fas fa-play text-2xl ml-1"></i>
+                    </button>
+                    <button class="w-12 h-12 rounded-full flex items-center justify-center hover:bg-slate-700 transition-colors" onclick="skipTimer()">
+                        <i class="fas fa-step-forward text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Task List đơn giản -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-indigo-400"></i> Nhiệm vụ hiện tại
+                </h3>
+                <input class="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500 transition-colors" id="task-input" placeholder="Bạn đang tập trung vào điều gì?" type="text" />
+            </div>
+        </div>
+
+        <!-- Cột phải: Âm thanh White Noise -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="glass rounded-3xl p-6">
+                <h3 class="text-lg font-semibold mb-6 flex items-center">
+                    <i class="fas fa-headphones-alt mr-2 text-indigo-400"></i> Âm thanh tập trung
+                </h3>
+                
+                <div class="space-y-6">
+                    <!-- Rain -->
+                    <div class="sound-control">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300"><i class="fas fa-cloud-showers-heavy w-6"></i> Tiếng mưa</span>
+                            <span class="text-xs text-slate-500 volume-val">0%</span>
+                        </div>
+                        <input class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" max="100" min="0" oninput="updateVolume('rain', this.value)" type="range" value="0" />
+                    </div>
+
+                    <!-- Cafe -->
+                    <div class="sound-control">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300"><i class="fas fa-coffee w-6"></i> Quán Cafe</span>
+                            <span class="text-xs text-slate-500 volume-val">0%</span>
+                        </div>
+                        <input class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" max="100" min="0" oninput="updateVolume('cafe', this.value)" type="range" value="0" />
+                    </div>
+
+                    <!-- Fireplace -->
+                    <div class="sound-control">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300"><i class="fas fa-fire w-6"></i> Lò sưởi</span>
+                            <span class="text-xs text-slate-500 volume-val">0%</span>
+                        </div>
+                        <input class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" max="100" min="0" oninput="updateVolume('fire', this.value)" type="range" value="0" />
+                    </div>
+
+                    <!-- Forest -->
+                    <div class="sound-control">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300"><i class="fas fa-tree w-6"></i> Rừng già</span>
+                            <span class="text-xs text-slate-500 volume-val">0%</span>
+                        </div>
+                        <input class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" max="100" min="0" oninput="updateVolume('forest', this.value)" type="range" value="0" />
+                    </div>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-700/50">
+                    <p class="text-[10px] text-slate-500 text-center leading-relaxed">
+                        Tổ hợp âm thanh giúp che lấp tiếng ồn bên ngoài và đưa não bộ vào trạng thái "Dòng chảy" (Flow).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Stats -->
+    <footer class="mt-12 text-slate-500 text-sm">
+        <div class="flex space-x-8">
+            <span>Đã hoàn thành: <b class="text-indigo-400" id="sessions-count">0</b> phiên</span>
+            <span>Tổng thời gian: <b class="text-indigo-400" id="total-minutes">0</b> phút</span>
+        </div>
+    </footer>
+
+    <!-- Audio Elements -->
+    <audio id="audio-rain" loop="" src="https://assets.mixkit.co/active_storage/sfx/2458/2458-preview.mp3"></audio>
+    <audio id="audio-cafe" loop="" src="https://www.soundjay.com/misc/sounds/coffee-shop-1.mp3"></audio>
+    <audio id="audio-fire" loop="" src="https://www.soundjay.com/nature/sounds/fire-1.mp3"></audio>
+    <audio id="audio-forest" loop="" src="https://www.soundjay.com/nature/sounds/forest-birds-1.mp3"></audio>
+    <audio id="audio-alarm" src="https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3"></audio>
+
+    <script>
+        // State Management
+        let timeLeft = 25 * 60;
+        let timerId = null;
+        let isRunning = false;
+        let currentMode = 'work'; // work | break
+        let completedSessions = 0;
+        let totalMinutes = 0;
+
+        const display = document.getElementById('timer-display');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const btnWork = document.getElementById('btn-work');
+        const btnBreak = document.getElementById('btn-break');
+
+        // Timer Functions
+        function updateDisplay() {
+            const mins = Math.floor(timeLeft / 60);
+            const secs = timeLeft % 60;
+            display.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            document.title = `${display.textContent} - Deep Work`;
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                pauseTimer();
             } else {
-                alert("Vui lòng nhập số phút hợp lệ (>0)!");
+                startTimer();
             }
         }
 
-        // --- LOGIC BỘ TRỘN ÂM THANH ---
-        function updateVolume(trackId, value) {
-<!-- ... existing code ... -->
+        function startTimer() {
+            if (isRunning) return;
+            isRunning = true;
+            playPauseBtn.innerHTML = '<i class="fas fa-pause text-2xl"></i>';
+            document.querySelector('.glass').classList.add('working-state');
+
+            timerId = setInterval(() => {
+                timeLeft--;
+                updateDisplay();
+                if (timeLeft <= 0) {
+                    clearInterval(timerId);
+                    handleTimerEnd();
+                }
+            }, 1000);
+            
+            // Resume white noise if any slider > 0
+            resumeAudioContext();
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerId);
+            playPauseBtn.innerHTML = '<i class="fas fa-play text-2xl ml-1"></i>';
+            document.querySelector('.glass').classList.remove('working-state');
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timeLeft = currentMode === 'work' ? 25 * 60 : 5 * 60;
+            updateDisplay();
+        }
+
+        function skipTimer() {
+            handleTimerEnd();
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            if (mode === 'work') {
+                btnWork.classList.add('active-tab');
+                btnBreak.classList.remove('active-tab');
+                timeLeft = 25 * 60;
+            } else {
+                btnBreak.classList.add('active-tab');
+                btnWork.classList.remove('active-tab');
+                timeLeft = 5 * 60;
+            }
+            pauseTimer();
+            updateDisplay();
+        }
+
+        function handleTimerEnd() {
+            document.getElementById('audio-alarm').play();
+            pauseTimer();
+            
+            if (currentMode === 'work') {
+                completedSessions++;
+                totalMinutes += 25;
+                document.getElementById('sessions-count').textContent = completedSessions;
+                document.getElementById('total-minutes').textContent = totalMinutes;
+                alert('Tuyệt vời! Thời gian làm việc đã hết. Hãy nghỉ ngơi chút nhé.');
+                setMode('break');
+            } else {
+                alert('Thời gian nghỉ đã hết. Sẵn sàng quay lại làm việc chưa?');
+                setMode('work');
+            }
+        }
+
+        // White Noise Functions
+        const audioNodes = {
+            rain: document.getElementById('audio-rain'),
+            cafe: document.getElementById('audio-cafe'),
+            fire: document.getElementById('audio-fire'),
+            forest: document.getElementById('audio-forest')
+        };
+
+        function updateVolume(type, val) {
+            const audio = audioNodes[type];
+            const volume = val / 100;
+            audio.volume = volume;
+            
+            // Update UI text
+            event.target.closest('.sound-control').querySelector('.volume-val').textContent = val + '%';
+
+            if (volume > 0) {
+                if (audio.paused) audio.play().catch(e => console.log("User interaction needed"));
+            } else {
+                audio.pause();
+            }
+        }
+
+        // Fix for browsers blocking auto-audio
+        function resumeAudioContext() {
+            for (let key in audioNodes) {
+                if (audioNodes[key].volume > 0 && audioNodes[key].paused) {
+                    audioNodes[key].play();
+                }
+            }
+        }
+
+        // Initialize
+        updateDisplay();
+    </script>
+</body>
+</html>
