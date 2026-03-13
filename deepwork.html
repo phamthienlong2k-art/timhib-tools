@@ -1,0 +1,44 @@
+<!-- ... existing code ... -->
+        function playAlarm() {
+            // Chuông báo đơn giản dùng Web Audio API
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(800, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+        }
+
+        // --- LOGIC CÀI ĐẶT THỜI GIAN ---
+        function openSettings() {
+            document.getElementById('input-work-time').value = TIME_WORK / 60;
+            document.getElementById('input-break-time').value = TIME_BREAK / 60;
+            const modal = document.getElementById('settings-modal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('active'), 10);
+        }
+
+        function closeSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 300);
+        }
+
+        function saveSettings() {
+            const newWork = parseInt(document.getElementById('input-work-time').value);
+            const newBreak = parseInt(document.getElementById('input-break-time').value);
+            
+            if (newWork > 0 && newBreak > 0) {
+                TIME_WORK = newWork * 60;
+                TIME_BREAK = newBreak * 60;
+                resetTimer(); // Reset lại timer với thời gian mới
+                closeSettings();
+            } else {
+                alert("Vui lòng nhập số phút hợp lệ (>0)!");
+            }
+        }
+
+        // --- LOGIC BỘ TRỘN ÂM THANH ---
+        function updateVolume(trackId, value) {
+<!-- ... existing code ... -->
